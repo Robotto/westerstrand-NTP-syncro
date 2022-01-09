@@ -26,9 +26,6 @@ const int timeZone = 1;     // Central European Time
 WiFiUDP Udp;
 unsigned int localPort = 9001;  // local port to listen for UDP packets
 
-//time_t getNtpTime();
-//void sendNTPpacket(IPAddress &address);
-
 void configModeCallback (WiFiManager *myWiFiManager) {
   Serial.println("Entered config mode");
   Serial.println("AP: " + myWiFiManager->getConfigPortalSSID());

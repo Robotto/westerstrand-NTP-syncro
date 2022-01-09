@@ -20,8 +20,7 @@ DRV8871 has two input pins, and two output pins:
 #include "Arduino.h"
 #include "drv8871.h"
 
-DRV8871::DRV8871(int pin1, int pin2)
-{
+DRV8871::DRV8871(int pin1, int pin2){
   pinMode(pin1, OUTPUT);
   pinMode(pin2, OUTPUT);
   coast();

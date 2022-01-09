@@ -2,7 +2,7 @@
 #include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
 #include <WiFiManager.h>          //https://github.com/tzapu/WiFiManager
-#include "drv8871.h"
+#include "drv8871.h"              //https://www.adafruit.com/product/3190
 
 #define DCDC_Enable_Pin  D2
 

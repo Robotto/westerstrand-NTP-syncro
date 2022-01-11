@@ -4,7 +4,10 @@
 #include <WiFiManager.h>          //https://github.com/tzapu/WiFiManager
 #include "drv8871.h"              //https://www.adafruit.com/product/3190
 
-#define DCDC_Enable_Pin  D2
+#define DCDC_Enable_Pin  D3
+#define Driver_pin_1     D1
+#define Driver_pin_2     D2
+
 
 
 //function prototypes:
@@ -12,7 +15,7 @@ time_t getNtpTime();
 int getDst(time_t epoch);
 void sendNTPpacket(IPAddress &address);
 
-DRV8871 driver(D1,D2);
+DRV8871 driver(Driver_pin_1,Driver_pin_2);
 
 //Buffers to hold current state of actual clock hardware:
 unsigned int clockHours = 0;
@@ -32,37 +35,63 @@ void configModeCallback (WiFiManager *myWiFiManager) {
   Serial.println("IP: " + WiFi.softAPIP().toString());
 }
 
-void tick(int minutes){
-  static bool polarity = LOW; //the westerstrand hadware requires every other 24V pulse to have reverse polarity
-
-  digitalWrite(DCDC_Enable_Pin, HIGH); //enable DCDC step-up converter
+void DCDCcontrol(bool power){
+  if(power){
+    pinMode(Driver_pin_1,OUTPUT);
+    pinMode(Driver_pin_2,OUTPUT);
+    driver.coast(); //Set pins to GND
+    digitalWrite(DCDC_Enable_Pin,HIGH); //Power On.
+  }
+  else{  //Should set pins to High impedace mode .. but maybe it's just INPUT_PULLUP??
+    driver.brake(); //set pins to 5V
+    pinMode(Driver_pin_1,INPUT);
+    pinMode(Driver_pin_2,INPUT);
+    digitalWrite(DCDC_Enable_Pin,LOW); //Power Off.
+  }
   //TODO: measure and calibrate DCDC startup time
   delay(100); //let the step-up converter settle in. 
+}
 
-  for (int n = 0; n < minutes; ++n) //Pulse n minutes
+void tick(int minutes){
+  static bool polarity = LOW; //the westerstrand hadware requires every other 24V pulse to have reverse polarity
+  
+  unsigned long callTime = millis();
+  int runTime = 1;
+
+  DCDCcontrol(true);
+  
+ // for (int n = 0; n < minutes; n++) //Pulse n minutes
+  while(minutes>0)
   {
     if(polarity) driver.forward();
     else driver.reverse();
     delay(100); //wait for the minute hand to move
-    driver.brake(); //ground the outputs of the motor driver.
+    driver.coast(); //release the outputs of the motor driver.
     delay(100); //wait for the hardware to calm down from a pulse
     polarity = !polarity; //flip the polarity.
 
     //update memory to reflect hardware state:
     clockMinutes++;
+    if(clockMinutes == 60) clockHours++;
     clockMinutes = clockMinutes % 60; //minutes go from 0 to 59
     clockHours = clockHours % 12; //hours go from 0 to 11 
+    
+    Serial.print(minutes); Serial.print("  "); Serial.write(0x8); Serial.write(0x8); Serial.write(0x8); Serial.write(0x8); Serial.write(0x8); 
+    
+    minutes--;
   }
-
-  digitalWrite(DCDC_Enable_Pin, LOW);
-  delay(1500); //let the DCDC calm down
+  
+  DCDCcontrol(false);  
+  //delay(1500); //let the DCDC calm down
 }
 
 unsigned int getTicksToTime(int h, int m){
   //12 hour format of hourFormat12() is 1-12
   //12 hour format of clockHours is 0-11
   h = h % 12;
-
+  
+  if(m==0 && clockHours+1 == h) return 1; //At the start of each hour...
+  
   int deltaHours = h - clockHours;
   if(deltaHours<0) deltaHours = 12 + deltaHours; //if clock is ahead of time (adding a negative number)
   
@@ -70,6 +99,8 @@ unsigned int getTicksToTime(int h, int m){
   if(deltaMinutes<0) deltaMinutes = 60 + deltaMinutes;
 
   unsigned int ticks = deltaMinutes + 60 * deltaHours;
+
+  if(ticks) {Serial.print("Deltatime is "); Serial.print(ticks); Serial.print(" minutes. "); Serial.print("("); Serial.print(deltaHours); Serial.print(" hours and "); Serial.print(deltaMinutes); Serial.println(" minutes)");}
   return ticks;
 }
 
@@ -85,6 +116,7 @@ void setup()
 
   tick(1); //tick one minute to make sure clock hardware polarity is known.
   
+  Serial.println("ON! .. did you hear a tick? you have five seconds to set the time to 12:00!");
   delay(5000); //wait five seconds for user to readjust the minute hand, in case it moved.
 
   WiFi.hostname("NTPClock");
@@ -118,16 +150,23 @@ void setup()
 }
 
 time_t prevDisplay = 0; // when the digital clock was displayed
+unsigned int deltaTimeInMinutes;
 
 void loop()
 {
   if (timeStatus() != timeNotSet) {
     if (minute() != minute(prevDisplay)) { //only change time if a minute has passed.
 
-      unsigned int deltaTimeInMinutes = getTicksToTime(hourFormat12(),minute());
+      Serial.println();  
+      Serial.print("Actual time is: "); Serial.print(hourFormat12()); Serial.print(":"); Serial.print(minute()); Serial.print(", Hardware time is: "); Serial.print(clockHours); Serial.print(":"); Serial.println(clockMinutes);
 
+      //check three times (first might be longer than a minute, second run might happen during a passing minute, in which case the third time wont.)
+      for(int i = 0; i<3 ; i++){
+      deltaTimeInMinutes = getTicksToTime(hourFormat12(),minute());
       tick(deltaTimeInMinutes);
+      }
 
+      Serial.print("Done! "); Serial.print("Actual time is: "); Serial.print(hourFormat12()); Serial.print(":"); Serial.print(minute()); Serial.print(", Hardware time is: "); Serial.print(clockHours); Serial.print(":"); Serial.println(clockMinutes);
       prevDisplay = now();
     }
   }

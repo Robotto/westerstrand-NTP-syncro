@@ -90,7 +90,7 @@ unsigned int getTicksToTime(int h, int m){
   //12 hour format of clockHours is 0-11
   h = h % 12;
   
-  if(m==0 && clockHours+1 == h) return 1; //At the start of each hour...
+  if(m==0 && (clockHours+1)%12 == h) return 1; //At the start of each hour...
   
   int deltaHours = h - clockHours;
   if(deltaHours<0) deltaHours = 12 + deltaHours; //if clock is ahead of time (adding a negative number)

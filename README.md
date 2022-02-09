@@ -2,7 +2,7 @@ A friend found a clock like this: https://www.youtube.com/watch?v=egyOi1eJo0w
 
 I did a thing to drive it from an ESP8266 with NTP time.
 
-Here's a schematic:
+Here's a sketch:
 
 ![](hardware_sketch.png | width=200)
 

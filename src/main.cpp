@@ -116,8 +116,8 @@ void setup()
 
   tick(1); //tick one minute to make sure clock hardware polarity is known.
   
-  Serial.println("ON! .. did you hear a tick? you have five seconds to set the time to 12:00!");
-  delay(5000); //wait five seconds for user to readjust the minute hand, in case it moved.
+  Serial.println("ON! .. did you hear a tick? you have five seconds to set the time to 12:01!");
+  delay(5000); //wait five seconds for user to readjust the minute hand, in case it didn't move.
 
   WiFi.hostname("NTPClock");
 
